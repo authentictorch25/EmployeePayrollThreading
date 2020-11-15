@@ -11,6 +11,7 @@ namespace EmployeePayrollMultithread
    public class EmployeePayrollOperations
         { 
          public static SqlConnection connection { get; set; }
+        private static Mutex mutex = new Mutex();
 
         /// <summary>
         /// Adds the employee list to data base.
@@ -97,6 +98,32 @@ namespace EmployeePayrollMultithread
                 if (connection.State.Equals("Open"))
                     connection.Close();
             }
+        }
+        /// <summary>
+        /// Adds the employee list to data base with synchronization.
+        /// </summary>
+        /// <param name="employeeList">The employee list.</param>
+        public void AddEmployeeListToDataBaseWithSynchronization(List<EmployeeModel> employeeList)
+        {
+            /// Iterating over all the employee model list and point individual employee detail of the list
+            employeeList.ForEach(employeeData =>
+            {
+                Task thread = new Task(() =>
+                {
+                    //Lock the set of codes for the current employeeData
+                    lock (employeeData)
+                    {
+                        //mutex.WaitOne();
+                        Console.WriteLine("Current thread id: " + Thread.CurrentThread.ManagedThreadId);
+                        Console.WriteLine("Employee Being added" + employeeData.EmployeeName);
+                        this.AddEmployeeToDatabase(employeeData);
+                        Console.WriteLine("Employee added:" + employeeData.EmployeeName);
+                        //mutex.ReleaseMutex();
+                    }
+                });
+                thread.Start();
+                thread.Wait();
+            });
         }
     }
 }
