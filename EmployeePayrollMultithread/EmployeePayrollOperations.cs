@@ -21,7 +21,7 @@ namespace EmployeePayrollMultithread
         private static Mutex mutex = new Mutex();
 
         /// <summary>
-        /// UC 1 : Adds the employee list to data base.
+        /// Adds the employee list to data base.
         /// </summary>
         /// <param name="employeeList">The employee list.</param>
         public bool AddEmployeeListToDataBase(List<EmployeeModel> employeeList)
@@ -40,7 +40,7 @@ namespace EmployeePayrollMultithread
         }
 
         /// <summary>
-        /// UC 2 : Adds the employee list to database using thread.
+        /// Adds the employee list to database using thread.
         /// </summary>
         /// <param name="employeeList">The employee list.</param>
         public void AddEmployeeListToDataBaseWithThread(List<EmployeeModel> employeeList)
@@ -64,7 +64,7 @@ namespace EmployeePayrollMultithread
         }
 
         /// <summary>
-        /// UC 3 : Adds the employee list to data base with synchronization.
+        /// Adds the employee list to data base with synchronization.
         /// </summary>
         /// <param name="employeeList">The employee list.</param>
         public void AddEmployeeListToDataBaseWithSynchronization(List<EmployeeModel> employeeList)
@@ -92,6 +92,85 @@ namespace EmployeePayrollMultithread
             });
         }
 
+        /// <summary>
+        /// Adds the employee list to multiple tables with synchronization.
+        /// </summary>
+        /// <param name="employeeList">The employee list.</param>
+        public void AddEmployeeListToMultipleTablesWithSynchronization(List<EmployeeModel> employeeList)
+        {
+            /// Iterating over all the employee model list and point individual employee detail of the list
+            employeeList.ForEach(employeeData =>
+            {
+                Task thread = new Task(() =>
+                {
+                    //Lock the set of codes for the current employeeData
+                    lock (employeeData)
+                    {
+                        //mutex.WaitOne();
+                        nLog.LogDebug($"Adding the Employee: {employeeData.EmployeeName} using synchronization via ThreadID: {Thread.CurrentThread.ManagedThreadId}");
+                        Console.WriteLine("Current thread id: " + Thread.CurrentThread.ManagedThreadId);
+                        Console.WriteLine("Employee Being added" + employeeData.EmployeeName);
+                        this.AddEmployeeDetailsIntoMultipleTables(employeeData);
+                        Console.WriteLine("Employee added:" + employeeData.EmployeeName);
+                        nLog.LogInfo($"Employee {employeeData.EmployeeName} added in Database using synchronization via ThreadId: " + Thread.CurrentThread.ManagedThreadId);
+                        //mutex.ReleaseMutex();
+                    }
+                });
+                thread.Start();
+                thread.Wait();
+            });
+        }
+
+        /// <summary>
+        /// Adds the employee details into multiple tables.
+        /// </summary>
+        /// <param name="employee">The employee.</param>
+        /// <returns></returns>
+        /// <exception cref="Exception"></exception>
+        public bool AddEmployeeDetailsIntoMultipleTables(EmployeeModel employee)
+        {
+            lock (this)
+            {
+                DBConnection dbc = new DBConnection();
+                connection = dbc.GetConnection();
+                try
+                {
+                    using (connection)
+                    {
+                        SqlCommand command = new SqlCommand("dbo.spAddEmployeeDetailsIntoMultipleTablesMultiThreading", connection);
+                        command.CommandType = CommandType.StoredProcedure;
+                        command.Parameters.AddWithValue("@empname", employee.EmployeeName);
+                        command.Parameters.AddWithValue("@start_date", employee.StartDate);
+                        command.Parameters.AddWithValue("@gender", employee.Gender);
+                        command.Parameters.AddWithValue("@phonenumber", employee.PhoneNumber);
+                        command.Parameters.AddWithValue("@address", employee.Address);
+                        command.Parameters.AddWithValue("@department", employee.Department);
+                        command.Parameters.AddWithValue("@Basic_Pay", employee.BasicPay);
+                        command.Parameters.AddWithValue("@Deductions", employee.Deductions);
+                        command.Parameters.AddWithValue("@Taxable_pay", employee.TaxablePay);
+                        command.Parameters.AddWithValue("@tax", employee.Tax);
+                        command.Parameters.AddWithValue("@Net_pay", employee.NetPay);
+                        connection.Open();
+                        var result = command.ExecuteNonQuery();
+                        connection.Close();
+                        if (result != 0)
+                        {
+                            return true;
+                        }
+                        return false;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    throw new Exception(ex.Message);
+                }
+                finally
+                {
+                    if (connection.State.Equals("Open"))
+                        connection.Close();
+                }
+            }
+        }
         /// <summary>
         /// Adds the employee to database.
         /// </summary>
