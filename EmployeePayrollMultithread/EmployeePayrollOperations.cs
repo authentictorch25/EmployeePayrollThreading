@@ -222,5 +222,72 @@ namespace EmployeePayrollMultithread
             }
 
         }
+        /// <summary>
+        /// Updates the salary details using threads with synchronize.
+        /// </summary>
+        /// <param name="employeeList">The employee list.</param>
+        public void UpdateSalaryDetailsUsingThreadsWithSync(List<EmployeeModel> employeeList)
+        {
+            /// Iterating over all the employee model list and point individual employee detail of the list
+            employeeList.ForEach(employeeData =>
+            {
+                Task thread = new Task(() =>
+                {
+                    //Lock the set of codes for the current employeeData
+                    lock (employeeData)
+                    {
+                        //mutex.WaitOne();
+                        nLog.LogDebug($"Updating the Employee: {employeeData.EmployeeName} using synchronization via ThreadID: {Thread.CurrentThread.ManagedThreadId}");
+                        Console.WriteLine("Current thread id: " + Thread.CurrentThread.ManagedThreadId);
+                        Console.WriteLine("Employee whose salary being updated" + employeeData.EmployeeName);
+                        this.UpdateSalaryDetailsIntoMultipleTable(employeeData);
+                        Console.WriteLine("Employee whose salary updated:" + employeeData.EmployeeName);
+                        nLog.LogInfo($"Employee {employeeData.EmployeeName} updated in Database using synchronization via ThreadId: " + Thread.CurrentThread.ManagedThreadId);
+                        //mutex.ReleaseMutex();
+                    }
+                });
+                thread.Start();
+                thread.Wait();
+            });
+        }
+        public bool UpdateSalaryDetailsIntoMultipleTable(EmployeeModel employee)
+        {
+            lock (this)
+            {
+                DBConnection dbc = new DBConnection();
+                connection = dbc.GetConnection();
+                try
+                {
+                    using (connection)
+                    {
+                        SqlCommand command = new SqlCommand("dbo.spUpdateSalary", connection);
+                        command.CommandType = CommandType.StoredProcedure;
+                        command.Parameters.AddWithValue("@empname", employee.EmployeeName);
+                        command.Parameters.AddWithValue("@Basic_Pay", employee.BasicPay);
+                        command.Parameters.AddWithValue("@Deductions", employee.Deductions);
+                        command.Parameters.AddWithValue("@Taxable_pay", employee.TaxablePay);
+                        command.Parameters.AddWithValue("@tax", employee.Tax);
+                        command.Parameters.AddWithValue("@Net_pay", employee.NetPay);
+                        connection.Open();
+                        var result = command.ExecuteNonQuery();
+                        connection.Close();
+                        if (result != 0)
+                        {
+                            return true;
+                        }
+                        return false;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    throw new Exception(ex.Message);
+                }
+                finally
+                {
+                    if (connection.State.Equals("Open"))
+                        connection.Close();
+                }
+            }
+        }
     }
 }
