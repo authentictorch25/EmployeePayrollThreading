@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace EmployeePayrollMultithread
 {
@@ -11,9 +13,10 @@ namespace EmployeePayrollMultithread
          public static SqlConnection connection { get; set; }
 
         /// <summary>
-        /// UC 1 : Adds the employee list to data base.
+        /// Adds the employee list to data base.
         /// </summary>
         /// <param name="employeeList">The employee list.</param>
+        /// <returns></returns>
         public bool AddEmployeeListToDataBase(List<EmployeeModel> employeeList)
         {
             foreach (var employee in employeeList)
@@ -25,6 +28,27 @@ namespace EmployeePayrollMultithread
                     return false;
             }
             return true;
+        }
+
+        /// <summary>
+        /// Adds the employee list to database using thread.
+        /// </summary>
+        /// <param name="employeeList">The employee list.</param>
+        public void AddEmployeeListToDataBaseWithThread(List<EmployeeModel> employeeList)
+        {
+            employeeList.ForEach(employeeData =>
+            {
+                //For each employeeData present in list new thread is created and all threads run according
+                //to the time slot assigned by the thread scheduler
+                Task thread = new Task(() =>
+                {
+                    Console.WriteLine("Current thread id: " + Thread.CurrentThread.ManagedThreadId);
+                    Console.WriteLine("Employee Being added" + employeeData.EmployeeName);
+                    this.AddEmployeeToDatabase(employeeData);
+                    Console.WriteLine("Employee added:" + employeeData.EmployeeName);
+                });
+                thread.Start();
+            });
         }
 
         /// <summary>
